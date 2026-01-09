@@ -2,11 +2,11 @@ import { createInterface } from 'readline'
 import { createReadStream, writeFileSync, readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
-import { Provider } from './provider/provider'
-import { Config } from './config/config'
-import { Log } from './util/log'
-import { Instance } from './project/instance'
-import { VeniceProvider } from './provider/venice'
+import { Provider } from '../provider/provider'
+import { Config } from '../config/config'
+import { Log } from '../util/log'
+import { Instance } from '../project/instance'
+import { VeniceProvider } from '../provider/venice'
 
 export namespace VeniceCLI {
   const log = Log.create({ service: 'venice-cli' })
@@ -152,8 +152,9 @@ export namespace VeniceCLI {
           messages: messages as any, // Type assertion to avoid complex type issues
         })
 
-        const response = await result.text()
-        
+        // result.text is a Promise<string>, not a method
+        const response = await result.text
+
         // Add assistant response to history
         await this.addMessage('assistant', response)
 
@@ -167,7 +168,7 @@ export namespace VeniceCLI {
 
     private async handleCommand(command: string): Promise<string> {
       const [cmd, ...args] = command.trim().split(' ')
-      
+
       switch (cmd.toLowerCase()) {
         case 'help':
           return this.getHelp()

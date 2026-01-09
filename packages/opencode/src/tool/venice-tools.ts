@@ -22,7 +22,7 @@ export namespace VeniceTools {
     private static readonly ALLOWED_TOOLS = new Set([
       "bash",
       "read",
-      "write", 
+      "write",
       "edit",
       "websearch",
       "webfetch",
@@ -35,8 +35,8 @@ export namespace VeniceTools {
      * Execute a tool call with Venice-specific permission checks
      */
     static async executeTool(
-      toolName: string, 
-      toolArguments: any, 
+      toolName: string,
+      toolArguments: any,
       context: any
     ): Promise<any> {
       log.info("Executing Venice tool", { toolName, toolArguments })
@@ -73,14 +73,14 @@ export namespace VeniceTools {
      * Check Venice-specific permissions for a tool
      */
     private static async checkVenicePermissions(
-      toolName: string, 
-      toolArguments: any, 
+      toolName: string,
+      toolArguments: any,
       context: any
     ): Promise<void> {
       // Check if Venice provider is allowed to execute this type of tool
       const config = await context.getConfig()
       const veniceConfig = config.provider?.["venice"] || {}
-      
+
       // Check if specific tool is enabled for Venice
       if (veniceConfig.tools && Array.isArray(veniceConfig.tools) && !veniceConfig.tools.includes(toolName)) {
         throw new Error(`Tool '${toolName}' is not enabled for Venice provider in configuration`)
@@ -112,11 +112,11 @@ export namespace VeniceTools {
      * Check permissions for bash commands
      */
     private static async checkBashPermission(
-      args: any, 
+      args: any,
       context: any
     ): Promise<void> {
       const command = args.command?.toLowerCase() || ""
-      
+
       // Block dangerous commands
       const dangerousCommands = [
         "rm -rf /",
@@ -178,9 +178,9 @@ export namespace VeniceTools {
       if (!Filesystem.contains(Instance.directory, absolutePath)) {
         const config = await context.getConfig()
         const allowedPaths = config.provider?.["venice"]?.allowed_paths || []
-        
+
         // Check if the path is in the allowed paths
-        const isInAllowedPath = allowedPaths.some((allowedPath: string) => 
+        const isInAllowedPath = allowedPaths.some((allowedPath: string) =>
           Filesystem.contains(path.resolve(Instance.directory, allowedPath), absolutePath)
         )
 
@@ -195,7 +195,7 @@ export namespace VeniceTools {
      */
     private static async executeBashTool(args: any, context: any) {
       // Use the existing BashTool but with Venice-specific security checks
-      return await BashTool.init().then(tool => 
+      return await BashTool.init().then(tool =>
         tool.execute(args, {
           ...context,
           ask: async (permissionReq: any) => {
@@ -264,7 +264,11 @@ export namespace VeniceTools {
         tool_arguments: z.record(z.string(), z.any()).describe("Arguments for the tool"),
         tool_id: z.string().describe("Unique ID for this tool call")
       }),
-      async execute(params, ctx) {
+      async execute(params: { tool_name: string; tool_arguments: Record<string, any>; tool_id: string }, ctx: any): Promise<{
+        title: string
+        output: string
+        metadata: { tool_id: string; tool_name: string; result: any }
+      }> {
         try {
           const result = await VeniceToolExecutor.executeTool(
             params.tool_name,
@@ -274,7 +278,7 @@ export namespace VeniceTools {
 
           return {
             title: `Venice tool call result for ${params.tool_name}`,
-            output: result.output || result,
+            output: typeof result === 'string' ? result : (result?.output || JSON.stringify(result)),
             metadata: {
               tool_id: params.tool_id,
               tool_name: params.tool_name,
@@ -282,18 +286,18 @@ export namespace VeniceTools {
             }
           }
         } catch (error) {
-          log.error("Error executing Venice tool", { 
-            tool_name: params.tool_name, 
-            error: (error as Error).message 
+          log.error("Error executing Venice tool", {
+            tool_name: params.tool_name,
+            error: (error as Error).message
           })
-          
+
           return {
             title: `Error executing Venice tool: ${params.tool_name}`,
             output: `Error: ${(error as Error).message}`,
             metadata: {
               tool_id: params.tool_id,
               tool_name: params.tool_name,
-              error: (error as Error).message
+              result: { error: (error as Error).message }
             }
           }
         }

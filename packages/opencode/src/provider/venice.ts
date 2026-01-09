@@ -1,5 +1,5 @@
 import { createOpenaiCompatible } from "./sdk/openai-compatible/src"
-import type { LanguageModelV2 } from "ai"
+import type { LanguageModel } from "ai"
 import { Log } from "../util/log"
 
 export namespace VeniceProvider {
@@ -28,6 +28,8 @@ export namespace VeniceProvider {
         vision: boolean
         characters: boolean
         structured_outputs: boolean
+        multimodal?: boolean
+        input?: string[]
       }
       traits: string[]
     }>
@@ -67,13 +69,14 @@ export namespace VeniceProvider {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         // Add trace ID to headers for server-side correlation
+        const existingHeaders = options.headers as Record<string, string> | undefined
         const enhancedOptions = {
           ...options,
           headers: {
-            ...options.headers,
+            ...existingHeaders,
             'x-trace-id': traceId,
-            'user-agent': options.headers?.['user-agent'] || 'opencode-venice-client'
-          },
+            'user-agent': existingHeaders?.['user-agent'] || 'opencode-venice-client'
+          } as Record<string, string>,
           signal: options.signal || AbortSignal.timeout(30000), // 30 second timeout
         }
 
@@ -268,16 +271,25 @@ export namespace VeniceProvider {
   /**
    * Create a Venice provider instance with error handling and retry configuration
    */
+  // Custom fetch wrapper that includes preconnect property for Bun compatibility
+  const createFetchWithRetry = () => {
+    const fetchFn = async (input: any, init?: any) => {
+      return fetchWithRetry(input, init || {}).then(response => response)
+    }
+    // Add preconnect property to satisfy Bun's fetch type requirements
+    ;(fetchFn as any).preconnect = (url: string | URL) => {
+      // Preconnect is a no-op in our custom implementation
+      void url
+    }
+    return fetchFn as typeof fetch
+  }
+
   export function createVeniceProvider(apiKey?: string, options: Record<string, any> = {}) {
     return createOpenaiCompatible({
       apiKey,
       baseURL: DEFAULT_BASE_URL,
       name: "venice",
-      // Add custom fetch with retry logic
-      fetch: async (input: any, init?: any) => {
-        // Apply retry logic to individual requests
-        return fetchWithRetry(input, init || {}).then(response => response)
-      },
+      fetch: createFetchWithRetry(),
       ...options,
     })
   }
@@ -290,11 +302,7 @@ export namespace VeniceProvider {
       apiKey,
       baseURL: DEFAULT_BASE_URL,
       name: "venice",
-      // Add custom fetch with retry logic and streaming support
-      fetch: async (input: any, init?: any) => {
-        // Apply retry logic to individual requests
-        return fetchWithRetry(input, init || {}).then(response => response)
-      },
+      fetch: createFetchWithRetry(),
       ...options,
     })
   }
@@ -309,11 +317,7 @@ export namespace VeniceProvider {
       apiKey,
       baseURL: DEFAULT_BASE_URL,
       name: "venice",
-      // Add custom fetch with retry logic
-      fetch: async (input: any, init?: any) => {
-        // Apply retry logic to individual requests
-        return fetchWithRetry(input, init || {}).then(response => response)
-      },
+      fetch: createFetchWithRetry(),
       ...options,
     })
   }
@@ -323,7 +327,7 @@ export namespace VeniceProvider {
    */
   export function getVeniceModel(modelId: string, apiKey?: string, options: Record<string, any> = {}) {
     const veniceProvider = createVeniceProvider(apiKey, options)
-    return veniceProvider.languageModel(modelId) as LanguageModelV2
+    return veniceProvider.languageModel(modelId) as LanguageModel
   }
 
   /**
@@ -347,7 +351,7 @@ export namespace VeniceProvider {
     }
 
     const veniceProvider = createVeniceProviderWithStructuredOutputs(apiKey, options)
-    return veniceProvider.languageModel(modelId) as LanguageModelV2
+    return veniceProvider.languageModel(modelId) as LanguageModel
   }
 
   /**
@@ -438,7 +442,7 @@ export namespace VeniceProvider {
     options: Record<string, any> = {}
   ) {
     const veniceProvider = createVeniceProviderWithStreaming(apiKey, options)
-    return veniceProvider.languageModel(modelId) as LanguageModelV2
+    return veniceProvider.languageModel(modelId) as LanguageModel
   }
 
   /**
@@ -555,7 +559,7 @@ export namespace VeniceProvider {
     }
 
     const veniceProvider = createVeniceProvider(apiKey, options)
-    return veniceProvider.languageModel(modelId) as LanguageModelV2
+    return veniceProvider.languageModel(modelId) as LanguageModel
   }
 
   /**
@@ -653,11 +657,7 @@ export namespace VeniceProvider {
           character_slug: characterSlug
         }
       }),
-      // Add custom fetch with retry logic
-      fetch: async (input: any, init?: any) => {
-        // Apply retry logic to individual requests
-        return fetchWithRetry(input, init || {}).then(response => response)
-      },
+      fetch: createFetchWithRetry(),
       ...options,
     }
 
@@ -674,7 +674,7 @@ export namespace VeniceProvider {
     options: Record<string, any> = {}
   ) {
     const veniceProvider = createVeniceProviderWithCharacter(apiKey, characterSlug, options)
-    return veniceProvider.languageModel(modelId) as LanguageModelV2
+    return veniceProvider.languageModel(modelId) as LanguageModel
   }
 
   /**

@@ -63,6 +63,7 @@ export namespace Provider {
     "@ai-sdk/vercel": createVercel,
     // @ts-ignore (TODO: kill this code so we dont have to maintain it)
     "@ai-sdk/github-copilot": createGitHubCopilotOpenAICompatible,
+    // @ts-expect-error Venice provider returns OpenaiCompatibleProvider which is compatible for our usage
     "./venice": (options: any) => VeniceProvider.createVeniceProvider(options.apiKey, options),
   }
 
@@ -441,11 +442,11 @@ export namespace Provider {
       }
     },
     venice: async (input) => {
+      const env = Env.all()
+      const config = await Config.get()
       const hasKey = await (async () => {
-        const env = Env.all()
         if (input.env.some((item) => env[item])) return true
         if (await Auth.get(input.id)) return true
-        const config = await Config.get()
         if (config.provider?.["venice"]?.options?.apiKey) return true
         return false
       })()
@@ -455,8 +456,8 @@ export namespace Provider {
         try {
           const auth = await Auth.get("venice")
           const apiKey = auth?.type === "api" ? auth.key :
-                         config.provider?.["venice"]?.options?.apiKey ||
-                         env["VENICE_API_KEY"]
+            config.provider?.["venice"]?.options?.apiKey ||
+            env["VENICE_API_KEY"]
 
           // Pre-fetch capabilities to enrich model information
           await VeniceProvider.fetchCapabilities(apiKey)
@@ -580,13 +581,13 @@ export namespace Provider {
         },
         experimentalOver200K: model.cost?.context_over_200k
           ? {
-              cache: {
-                read: model.cost.context_over_200k.cache_read ?? 0,
-                write: model.cost.context_over_200k.cache_write ?? 0,
-              },
-              input: model.cost.context_over_200k.input,
-              output: model.cost.context_over_200k.output,
-            }
+            cache: {
+              read: model.cost.context_over_200k.cache_read ?? 0,
+              write: model.cost.context_over_200k.cache_write ?? 0,
+            },
+            input: model.cost.context_over_200k.input,
+            output: model.cost.context_over_200k.output,
+          }
           : undefined,
       },
       limit: {
