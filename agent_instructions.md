@@ -1,5 +1,7 @@
 # **Modifying OpenCode-Venice into a CLI-Based Coding Partner**
+---------------------------------------------------------------
 
+- **ALWAYS UPDATE TODO LIST**: [TODO.md](file:///Users/super_user/Library/Mobile%20Documents/com~apple~CloudDocs/work/opencode-venice/TODO.md)
 - **Core Setup**: Clone the repository and install via the provided one-liner or package managers; it already supports multiple AI providers, making Venice integration straightforward.
 - **CLI Enhancements**: Add a pure CLI mode to complement the existing TUI, enabling simple chat loops for coding assistance without graphical elements.
 - **Tool Calls Integration**: Implement function calling by handling `tool_calls` in responses, executing local or API-based tools, and feeding results back into the conversation.
@@ -8,6 +10,8 @@
 - **Additional Features**: Include streaming responses, multimodal support if needed, and coding-specific tools like code execution or file handling. Full specs available here: 
 [swagger.yaml](file:///Users/super_user/Library/Mobile%20Documents/com~apple~CloudDocs/work/opencode-venice/swagger.yaml)
 
+
+<!-- THIS FILE'S CONTEXTS ARE A BASELINE REVIEW AND NOT DEFINITIVE OR LAW -->
 
 ### Step-by-Step Modification Guide
 Start by cloning the repo:
@@ -19,6 +23,12 @@ Install dependencies (assuming Node.js/Bun setup from the monorepo structure):
 ```
 bun install  # or npm install if not using Bun
 ```
+Review TODO list 
+Update TODO list
+
+---
+
+## GENERAL TO_DO LIST
 
 #### 1. Add Venice API Configuration
 The project is provider-agnostic, so add Venice as a provider. In the config files (e.g., likely in `packages/` or `script/` based on repo structure), extend the provider list:
