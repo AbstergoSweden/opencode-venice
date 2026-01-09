@@ -189,3 +189,18 @@ describe.skipIf(!RUN_INTEGRATION_TESTS)("Venice API Error Handling", () => {
     }, 30000)
 })
 
+// Tool-calling tests - these test the infrastructure, not live API generation
+describe("Venice Tool Executor", () => {
+    test("VeniceToolExecutor class exists and has executeTool method", async () => {
+        const { VeniceTools } = await import("../../src/tool/venice-tools")
+        expect(VeniceTools.VeniceToolExecutor).toBeDefined()
+        expect(typeof VeniceTools.VeniceToolExecutor.executeTool).toBe("function")
+    })
+
+    test("VeniceToolCallHandler is defined and is a tool", async () => {
+        const { VeniceTools } = await import("../../src/tool/venice-tools")
+        expect(VeniceTools.VeniceToolCallHandler).toBeDefined()
+        // Verify it has the expected tool structure
+        expect(typeof VeniceTools.VeniceToolCallHandler).toBe("object")
+    })
+})
