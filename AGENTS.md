@@ -2,7 +2,8 @@
 - To regenerate the javascript SDK, run ./packages/sdk/js/script/build.ts
 - ALWAYS USE PARALLEL TOOLS WHEN APPLICABLE.
 - the default branch in this repo is `dev`
-- 
+- this project's purpose to import ai agentic and general ai usage with api streaming from venice.ai API's
+- full instructions located within [agent_instructions.md](file:///Users/super_user/Library/Mobile%20Documents/com~apple~CloudDocs/work/opencode-venice/agent_instructions.md)
 - the following is a list of links to be considered law and truth for this new project: 
 sources of truth: 
 
@@ -79,3 +80,5 @@ sources of truth:
 [swagger.yaml](file:///Users/super_user/Library/Mobile%20Documents/com~apple~CloudDocs/work/opencode-venice/swagger.yaml)
 
 [source of truth.md](file:///Users/super_user/Library/Mobile%20Documents/com~apple~CloudDocs/work/opencode-venice/source%20of%20truth.md)
+
+[agent_instructions.md](file:///Users/super_user/Library/Mobile%20Documents/com~apple~CloudDocs/work/opencode-venice/agent_instructions.md)
