@@ -88,6 +88,7 @@ For structured responses, you can use the standard OpenCode interface which will
 ### API Key Issues
 
 If you get authentication errors:
+
 1. Double-check your API key is correct
 2. Verify the environment variable is set in your current shell
 3. Make sure you're using the correct environment (development vs production)
@@ -95,14 +96,36 @@ If you get authentication errors:
 ### Model Not Found
 
 If Venice models aren't showing up:
+
 1. Verify the provider is enabled in your config
 2. Check that your API key has access to the models you're requesting
 
 ### Rate Limits
 
 If you hit rate limits:
+
 - The system has built-in retry logic that will automatically retry requests
 - Wait before making additional requests if you continue to receive rate limit errors
+
+### TypeScript Errors
+
+If you encounter type errors in Venice integration:
+
+1. Ensure `@ai-sdk/openai-compatible` is installed
+2. Run `npm run typecheck` to identify specific issues
+3. Clear turbo cache if needed: `bun turbo typecheck --force`
+
+### Health Check
+
+Verify Venice provider is working:
+
+```bash
+# Run Venice provider tests
+cd packages/opencode && bun test test/provider/venice.test.ts
+
+# Check if provider loads correctly
+VENICE_API_KEY=your-key bun dev
+```
 
 ## Next Steps
 

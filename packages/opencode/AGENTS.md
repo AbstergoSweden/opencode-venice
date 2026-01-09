@@ -25,3 +25,41 @@
 - **Logging**: Use `Log.create({ service: "name" })` pattern
 - **Storage**: Use `Storage` namespace for persistence
 - **API Client**: The TypeScript TUI (built with SolidJS + OpenTUI) communicates with the OpenCode server using `@opencode-ai/sdk`. When adding/modifying server endpoints in `packages/opencode/src/server/server.ts`, run `./script/generate.ts` to regenerate the SDK and related files.
+
+## Venice Provider
+
+The Venice AI provider (`src/provider/venice.ts`) integrates OpenCode with Venice.ai's API.
+
+### Configuration
+
+- **Environment**: Set `VENICE_API_KEY` in your environment
+- **Registry**: Venice provider is registered in `src/provider/provider.ts` under `CUSTOM_LOADERS`
+
+### Features
+
+- **Capability caching** - Fetches and caches model capabilities from `/models` endpoint
+- **Character support** - Use `VeniceProvider.getVeniceModelWithCharacter(modelId, apiKey, characterSlug)` for character personas
+- **Retry logic** - Exponential backoff with jitter for rate limit handling
+- **Streaming** - Use `VeniceProvider.getVeniceModelWithStreaming()` for streaming responses
+- **Structured outputs** - Use `VeniceProvider.getVeniceModelWithStructuredOutput()` for JSON schema outputs
+
+### Usage
+
+```typescript
+import { VeniceProvider } from "../provider/venice"
+
+// Basic model
+const model = VeniceProvider.getVeniceModel("qwen-2.5-72b", apiKey)
+
+// With character
+const model = VeniceProvider.getVeniceModelWithCharacter("qwen-2.5-72b", apiKey, "aria")
+
+// Check capabilities
+const hasTools = await VeniceProvider.hasCapability("qwen-2.5-72b", "tool_call", apiKey)
+```
+
+### Testing
+
+```bash
+bun test test/provider/venice.test.ts  # 17 tests
+```
