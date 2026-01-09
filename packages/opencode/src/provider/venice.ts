@@ -276,11 +276,11 @@ export namespace VeniceProvider {
     const fetchFn = async (input: any, init?: any) => {
       return fetchWithRetry(input, init || {}).then(response => response)
     }
-    // Add preconnect property to satisfy Bun's fetch type requirements
-    ;(fetchFn as any).preconnect = (url: string | URL) => {
-      // Preconnect is a no-op in our custom implementation
-      void url
-    }
+      // Add preconnect property to satisfy Bun's fetch type requirements
+      ; (fetchFn as any).preconnect = (url: string | URL) => {
+        // Preconnect is a no-op in our custom implementation
+        void url
+      }
     return fetchFn as typeof fetch
   }
 
@@ -540,8 +540,8 @@ export namespace VeniceProvider {
 
     // Check if the model supports image inputs as a proxy for multimodal support
     return model.capabilities.vision ||
-           model.capabilities.multimodal ||
-           (model.capabilities.input?.includes('image') ?? false)
+      model.capabilities.multimodal ||
+      (model.capabilities.input?.includes('image') ?? false)
   }
 
   /**
@@ -792,6 +792,279 @@ export namespace VeniceProvider {
     }
 
     return health
+  }
+
+  // ============================================================
+  // MULTIMODAL SUPPORT - Image Generation, Upscale, Edit
+  // ============================================================
+
+  /**
+   * Image generation request parameters
+   */
+  export interface ImageGenerateRequest {
+    model: string
+    prompt: string
+    negative_prompt?: string
+    width?: number
+    height?: number
+    resolution?: '1K' | '2K' | '4K'
+    aspect_ratio?: string
+    cfg_scale?: number
+    steps?: number
+    seed?: number
+    variants?: number
+    style_preset?: string
+    format?: 'webp' | 'png' | 'jpeg'
+    safe_mode?: boolean
+    hide_watermark?: boolean
+    return_binary?: boolean
+  }
+
+  /**
+   * Image generation response
+   */
+  export interface ImageGenerateResponse {
+    id: string
+    images: string[] // base64 encoded images
+    timing?: {
+      inferenceDuration: number
+      inferencePreprocessingTime: number
+      inferenceQueueTime: number
+      total: number
+    }
+  }
+
+  /**
+   * Image upscale request parameters
+   */
+  export interface ImageUpscaleRequest {
+    image: string // base64 encoded source image
+    scale?: number // upscale factor (e.g., 2, 4)
+    model?: string
+  }
+
+  /**
+   * Image edit request parameters
+   */
+  export interface ImageEditRequest {
+    image: string // base64 encoded source image
+    prompt: string
+    mask?: string // base64 encoded mask for inpainting
+    model?: string
+    strength?: number
+  }
+
+  /**
+   * Generate images using Venice AI
+   */
+  export async function generateImage(
+    request: ImageGenerateRequest,
+    apiKey?: string
+  ): Promise<ImageGenerateResponse | undefined> {
+    const key = apiKey || process.env.VENICE_API_KEY
+    if (!key) {
+      log.warn('No Venice API key provided for image generation')
+      return undefined
+    }
+
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${key}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'Opencode-Venice/1.0 (+https://github.com/AbstergoSweden/opencode-venice)'
+    }
+
+    try {
+      const response = await fetchWithRetry(
+        `${DEFAULT_BASE_URL}/image/generate`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(request),
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(`Image generation failed: ${response.status} ${response.statusText}`)
+      }
+
+      return await response.json() as ImageGenerateResponse
+    } catch (error) {
+      log.error('Error generating image', { error: String(error) })
+      return undefined
+    }
+  }
+
+  /**
+   * Upscale an image using Venice AI
+   */
+  export async function upscaleImage(
+    request: ImageUpscaleRequest,
+    apiKey?: string
+  ): Promise<ImageGenerateResponse | undefined> {
+    const key = apiKey || process.env.VENICE_API_KEY
+    if (!key) {
+      log.warn('No Venice API key provided for image upscale')
+      return undefined
+    }
+
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${key}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'Opencode-Venice/1.0 (+https://github.com/AbstergoSweden/opencode-venice)'
+    }
+
+    try {
+      const response = await fetchWithRetry(
+        `${DEFAULT_BASE_URL}/image/upscale`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(request),
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(`Image upscale failed: ${response.status} ${response.statusText}`)
+      }
+
+      return await response.json() as ImageGenerateResponse
+    } catch (error) {
+      log.error('Error upscaling image', { error: String(error) })
+      return undefined
+    }
+  }
+
+  /**
+   * Edit an image using Venice AI (inpainting/outpainting)
+   */
+  export async function editImage(
+    request: ImageEditRequest,
+    apiKey?: string
+  ): Promise<ImageGenerateResponse | undefined> {
+    const key = apiKey || process.env.VENICE_API_KEY
+    if (!key) {
+      log.warn('No Venice API key provided for image edit')
+      return undefined
+    }
+
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${key}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'Opencode-Venice/1.0 (+https://github.com/AbstergoSweden/opencode-venice)'
+    }
+
+    try {
+      const response = await fetchWithRetry(
+        `${DEFAULT_BASE_URL}/image/edit`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(request),
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(`Image edit failed: ${response.status} ${response.statusText}`)
+      }
+
+      return await response.json() as ImageGenerateResponse
+    } catch (error) {
+      log.error('Error editing image', { error: String(error) })
+      return undefined
+    }
+  }
+
+  /**
+   * Get available image style presets from Venice
+   */
+  export async function getImageStyles(apiKey?: string): Promise<string[] | undefined> {
+    const key = apiKey || process.env.VENICE_API_KEY
+    if (!key) {
+      log.warn('No Venice API key provided for image styles')
+      return undefined
+    }
+
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${key}`,
+      'User-Agent': 'Opencode-Venice/1.0 (+https://github.com/AbstergoSweden/opencode-venice)'
+    }
+
+    try {
+      const response = await fetchWithRetry(
+        `${DEFAULT_BASE_URL}/image/styles`,
+        { headers }
+      )
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image styles: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      return data.styles || data
+    } catch (error) {
+      log.error('Error fetching image styles', { error: String(error) })
+      return undefined
+    }
+  }
+
+  /**
+   * Generate embeddings using Venice AI
+   */
+  export interface EmbeddingRequest {
+    input: string | string[]
+    model?: string
+  }
+
+  export interface EmbeddingResponse {
+    data: Array<{
+      embedding: number[]
+      index: number
+    }>
+    model: string
+    usage?: {
+      prompt_tokens: number
+      total_tokens: number
+    }
+  }
+
+  export async function generateEmbeddings(
+    request: EmbeddingRequest,
+    apiKey?: string
+  ): Promise<EmbeddingResponse | undefined> {
+    const key = apiKey || process.env.VENICE_API_KEY
+    if (!key) {
+      log.warn('No Venice API key provided for embeddings')
+      return undefined
+    }
+
+    const headers: Record<string, string> = {
+      'Authorization': `Bearer ${key}`,
+      'Content-Type': 'application/json',
+      'User-Agent': 'Opencode-Venice/1.0 (+https://github.com/AbstergoSweden/opencode-venice)'
+    }
+
+    try {
+      const response = await fetchWithRetry(
+        `${DEFAULT_BASE_URL}/embeddings`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: request.model || 'text-embedding-ada-002',
+            input: request.input,
+          }),
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(`Embedding generation failed: ${response.status} ${response.statusText}`)
+      }
+
+      return await response.json() as EmbeddingResponse
+    } catch (error) {
+      log.error('Error generating embeddings', { error: String(error) })
+      return undefined
+    }
   }
 
   /**
