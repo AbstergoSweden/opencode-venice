@@ -36,6 +36,7 @@ import { createTogetherAI } from "@ai-sdk/togetherai"
 import { createPerplexity } from "@ai-sdk/perplexity"
 import { createVercel } from "@ai-sdk/vercel"
 import { ProviderTransform } from "./transform"
+import { VeniceProvider } from "./venice"
 
 export namespace Provider {
   const log = Log.create({ service: "provider" })
@@ -62,6 +63,7 @@ export namespace Provider {
     "@ai-sdk/vercel": createVercel,
     // @ts-ignore (TODO: kill this code so we dont have to maintain it)
     "@ai-sdk/github-copilot": createGitHubCopilotOpenAICompatible,
+    "./venice": (options: any) => VeniceProvider.createVeniceProvider(options.apiKey, options),
   }
 
   type CustomModelLoader = (sdk: any, modelID: string, options?: Record<string, any>) => Promise<any>
@@ -436,6 +438,36 @@ export namespace Provider {
             "X-Cerebras-3rd-Party-Integration": "opencode",
           },
         },
+      }
+    },
+    venice: async (input) => {
+      const hasKey = await (async () => {
+        const env = Env.all()
+        if (input.env.some((item) => env[item])) return true
+        if (await Auth.get(input.id)) return true
+        const config = await Config.get()
+        if (config.provider?.["venice"]?.options?.apiKey) return true
+        return false
+      })()
+
+      // Fetch Venice capabilities to enrich model information
+      if (hasKey) {
+        try {
+          const auth = await Auth.get("venice")
+          const apiKey = auth?.type === "api" ? auth.key :
+                         config.provider?.["venice"]?.options?.apiKey ||
+                         env["VENICE_API_KEY"]
+
+          // Pre-fetch capabilities to enrich model information
+          await VeniceProvider.fetchCapabilities(apiKey)
+        } catch (error) {
+          console.warn("Could not fetch Venice capabilities:", error)
+        }
+      }
+
+      return {
+        autoload: true, // Venice should autoload when API key is available
+        options: hasKey ? {} : { apiKey: undefined },
       }
     },
   }

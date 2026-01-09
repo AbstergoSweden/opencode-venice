@@ -25,6 +25,7 @@ import { Flag } from "@/flag/flag"
 import { Log } from "@/util/log"
 import { LspTool } from "./lsp"
 import { Truncate } from "./truncation"
+import { VeniceTools } from "./venice-tools"
 
 export namespace ToolRegistry {
   const log = Log.create({ service: "tool.registry" })
@@ -119,8 +120,15 @@ export namespace ToolRegistry {
 
   export async function tools(providerID: string, agent?: Agent.Info) {
     const tools = await all()
+    let allTools = [...tools]
+
+    // Add Venice-specific tools if using Venice provider
+    if (providerID === "venice") {
+      allTools.push(VeniceTools.VeniceToolCallHandler)
+    }
+
     const result = await Promise.all(
-      tools
+      allTools
         .filter((t) => {
           // Enable websearch/codesearch for zen users OR via enable flag
           if (t.id === "codesearch" || t.id === "websearch") {
