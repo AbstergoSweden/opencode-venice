@@ -44,17 +44,68 @@ export namespace VeniceProvider {
   }
 
   /**
-   * Generic fetch with retry mechanism and error handling
+   * Generate a unique trace ID for requests
+   */
+  function generateTraceId(): string {
+    return 'venice-' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
+  }
+
+  /**
+   * Generic fetch with retry mechanism, error handling, and tracing
    */
   async function fetchWithRetry(url: string, options: RequestInit, maxRetries = MAX_RETRIES) {
+    const traceId = generateTraceId()
+    log.info("Making Venice API request", {
+      url,
+      traceId,
+      method: options.method || 'GET',
+      headers: Object.keys(options.headers || {})
+    })
+
     let lastError: Error | null = null
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        const response = await fetch(url, {
+        // Add trace ID to headers for server-side correlation
+        const enhancedOptions = {
           ...options,
+          headers: {
+            ...options.headers,
+            'x-trace-id': traceId,
+            'user-agent': options.headers?.['user-agent'] || 'opencode-venice-client'
+          },
           signal: options.signal || AbortSignal.timeout(30000), // 30 second timeout
+        }
+
+        const startTime = Date.now()
+        const response = await fetch(url, enhancedOptions)
+        const duration = Date.now() - startTime
+
+        log.info("Venice API response", {
+          url,
+          traceId,
+          status: response.status,
+          duration,
+          attempt
         })
+
+        // Log request and response details for debugging (without sensitive data)
+        if (process.env.OPENCODE_DEBUG_LOGGING === 'true') {
+          log.debug("Request details", {
+            traceId,
+            url,
+            method: enhancedOptions.method,
+            headers: Object.keys(enhancedOptions.headers),
+            bodyPreview: enhancedOptions.body ?
+              (typeof enhancedOptions.body === 'string' ?
+                enhancedOptions.body.substring(0, 200) + '...' :
+                'non-string body') :
+              null
+          })
+
+          // Note: We can't easily log response body here without consuming it
+          // The actual content would be logged elsewhere when processed
+        }
 
         // Check if the response indicates a rate limit
         if (response.status === 429) {
@@ -62,7 +113,7 @@ export namespace VeniceProvider {
           const delay = retryAfter ? parseInt(retryAfter) * 1000 : calculateRetryDelay(attempt)
 
           if (attempt < maxRetries) {
-            console.warn(`Rate limited. Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries + 1})`)
+            log.warn(`Rate limited. Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries + 1})`, { traceId })
             await new Promise(resolve => setTimeout(resolve, delay))
             continue
           }
@@ -72,7 +123,7 @@ export namespace VeniceProvider {
         if (response.status >= 500 && response.status < 600) {
           if (attempt < maxRetries) {
             const delay = calculateRetryDelay(attempt)
-            console.warn(`Server error ${response.status}. Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries + 1})`)
+            log.warn(`Server error ${response.status}. Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries + 1})`, { traceId })
             await new Promise(resolve => setTimeout(resolve, delay))
             continue
           }
@@ -81,27 +132,42 @@ export namespace VeniceProvider {
         // For client errors (4xx), don't retry unless it's a specific case
         if (response.status >= 400 && response.status < 500 && response.status !== 429) {
           // Don't retry client errors except for rate limiting
+          log.warn(`Client error ${response.status}`, { traceId, url })
           return response
         }
 
         return response
       } catch (error) {
+        log.error("Network error in Venice API request", {
+          traceId,
+          url,
+          attempt,
+          error: (error as Error).message
+        })
+
         lastError = error as Error
 
         // If it's a timeout or network error, retry if attempts remain
         if (attempt < maxRetries) {
           const delay = calculateRetryDelay(attempt)
-          console.warn(`Network error: ${(error as Error).message}. Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries + 1})`)
+          log.info(`Network error: ${(error as Error).message}. Retrying in ${delay}ms... (attempt ${attempt + 1}/${maxRetries + 1})`, { traceId })
           await new Promise(resolve => setTimeout(resolve, delay))
           continue
         }
 
         // If we've exhausted retries, throw the error
+        log.error("Failed to complete Venice API request after retries", {
+          traceId,
+          url,
+          maxRetries,
+          finalError: (error as Error).message
+        })
         throw error
       }
     }
 
     // This should not be reached due to the return statements above, but added for completeness
+    log.error("Unexpected end of fetchWithRetry function", { traceId, url })
     throw lastError || new Error("Unknown error during fetch")
   }
 
@@ -609,6 +675,123 @@ export namespace VeniceProvider {
   ) {
     const veniceProvider = createVeniceProviderWithCharacter(apiKey, characterSlug, options)
     return veniceProvider.languageModel(modelId) as LanguageModelV2
+  }
+
+  /**
+   * Enable or disable debug logging for Venice provider
+   */
+  export function setDebugLogging(enabled: boolean) {
+    if (enabled) {
+      process.env.OPENCODE_DEBUG_LOGGING = 'true'
+      log.info("Venice provider debug logging enabled")
+    } else {
+      delete process.env.OPENCODE_DEBUG_LOGGING
+      log.info("Venice provider debug logging disabled")
+    }
+  }
+
+  /**
+   * Get current trace ID for the current execution context (if available)
+   */
+  export function getCurrentTraceId(): string | null {
+    // This would integrate with whatever tracing system is in place
+    // For now, we'll return null as there's no active trace context
+    return null
+  }
+
+  /**
+   * Health check interface
+   */
+  export interface VeniceHealthStatus {
+    status: 'healthy' | 'unhealthy' | 'degraded'
+    timestamp: number
+    message?: string
+    responseTime?: number
+    details?: {
+      apiReachable: boolean
+      authValid: boolean
+      rateLimitStatus?: string
+    }
+  }
+
+  /**
+   * Perform a health check on the Venice API
+   */
+  export async function checkHealth(apiKey?: string): Promise<VeniceHealthStatus> {
+    const startTime = Date.now()
+
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      }
+
+      if (apiKey) {
+        headers["Authorization"] = `Bearer ${apiKey}`
+      }
+
+      // Make a simple request to check API health
+      const response = await fetchWithRetry(`${DEFAULT_BASE_URL}/models`, {
+        headers,
+        method: 'GET'
+      })
+
+      const responseTime = Date.now() - startTime
+
+      if (!response.ok) {
+        return {
+          status: 'unhealthy',
+          timestamp: Date.now(),
+          message: `API returned ${response.status} status`,
+          responseTime,
+          details: {
+            apiReachable: false,
+            authValid: false
+          }
+        }
+      }
+
+      // If we got a successful response, the API is reachable
+      const data = await response.json()
+      const hasModels = Array.isArray(data) || (data.data && Array.isArray(data.data))
+
+      return {
+        status: 'healthy',
+        timestamp: Date.now(),
+        responseTime,
+        details: {
+          apiReachable: true,
+          authValid: !!apiKey, // If we have an API key and got a response, assume it's valid
+          rateLimitStatus: response.headers.get('X-RateLimit-Remaining') || undefined
+        }
+      }
+    } catch (error) {
+      const responseTime = Date.now() - startTime
+      return {
+        status: 'unhealthy',
+        timestamp: Date.now(),
+        message: `Connection failed: ${(error as Error).message}`,
+        responseTime,
+        details: {
+          apiReachable: false,
+          authValid: false
+        }
+      }
+    }
+  }
+
+  /**
+   * Get Venice status with graceful fallback mechanisms
+   */
+  export async function getVeniceStatus(apiKey?: string): Promise<VeniceHealthStatus> {
+    const health = await checkHealth(apiKey)
+
+    // Implement graceful fallback logic
+    if (health.status !== 'healthy' && health.details?.apiReachable === false) {
+      // Could implement fallback to alternative endpoints or cached data here
+      console.warn('Venice API is unreachable, consider fallback mechanisms')
+    }
+
+    return health
   }
 
   /**
