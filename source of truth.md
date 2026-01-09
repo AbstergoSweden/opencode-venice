@@ -1,11 +1,4 @@
-- To test opencode in the `packages/opencode` directory you can run `bun dev`
-- To regenerate the javascript SDK, run ./packages/sdk/js/script/build.ts
-- ALWAYS USE PARALLEL TOOLS WHEN APPLICABLE.
-- the default branch in this repo is `dev`
-- 
-- the following is a list of links to be considered law and truth for this new project: 
-sources of truth: 
-
+source of truth: 
 [https://docs.venice.ai/overview/deprecations](https://docs.venice.ai/overview/deprecations)
 
 [https://docs.venice.ai/overview/beta-models](https://docs.venice.ai/overview/beta-models)
@@ -74,8 +67,4 @@ sources of truth:
 
 [https://featurebase.venice.ai/changelog](https://featurebase.venice.ai/changelog)
 
-[https://veniceai-status.com](https://veniceai-status.com)
-
-[swagger.yaml](file:///Users/super_user/Library/Mobile%20Documents/com~apple~CloudDocs/work/opencode-venice/swagger.yaml)
-
-[source of truth.md](file:///Users/super_user/Library/Mobile%20Documents/com~apple~CloudDocs/work/opencode-venice/source%20of%20truth.md)
+[https://veniceai-status.com/](https://veniceai-status.com/)
