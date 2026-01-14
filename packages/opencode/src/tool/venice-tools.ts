@@ -9,6 +9,8 @@ import { ReadTool } from "./read"
 import { WriteTool } from "./write"
 import { WebSearchTool } from "./websearch"
 import { WebFetchTool } from "./webfetch"
+import { PermissionNext } from "../permission/next"
+import { Config } from "../config/config"
 import z from "zod"
 import path from "path"
 
@@ -70,23 +72,43 @@ export namespace VeniceTools {
     }
 
     /**
-     * Check Venice-specific permissions for a tool
+     * Check Venice-specific permissions for a tool using the PermissionNext system
      */
     private static async checkVenicePermissions(
       toolName: string,
       toolArguments: any,
       context: any
     ): Promise<void> {
-      // Check if Venice provider is allowed to execute this type of tool
-      const config = await context.getConfig()
-      const veniceConfig = config.provider?.["venice"] || {}
+      // Get configuration for Venice provider
+      const config = await Config.get()
+      const veniceConfig = config.provider?.["venice"]?.options || {}
 
-      // Check if specific tool is enabled for Venice
-      if (veniceConfig.tools && Array.isArray(veniceConfig.tools) && !veniceConfig.tools.includes(toolName)) {
+      // Check if specific tool is enabled for Venice (custom option)
+      const enabledTools = veniceConfig["tools"] as string[] | undefined
+      if (enabledTools && Array.isArray(enabledTools) && !enabledTools.includes(toolName)) {
         throw new Error(`Tool '${toolName}' is not enabled for Venice provider in configuration`)
       }
 
-      // Apply additional permission checks based on tool type
+      // Get agent permission ruleset if available (for plan=read-only enforcement)
+      const agentRuleset = context.agent?.permission ?? []
+
+      // Map tool names to permission types
+      const permissionType = this.getPermissionType(toolName)
+      const pattern = this.getPattern(toolName, toolArguments)
+
+      // Evaluate permission using the agent's ruleset
+      if (agentRuleset.length > 0) {
+        const result = PermissionNext.evaluate(permissionType, pattern, agentRuleset)
+        log.info("Venice permission check", { toolName, permissionType, pattern, action: result.action })
+
+        if (result.action === "deny") {
+          throw new PermissionNext.DeniedError([result])
+        }
+
+        // If 'ask' is required, the context.ask() call later will handle it
+      }
+
+      // Apply additional Venice-specific permission checks
       switch (toolName) {
         case "bash":
           // For bash tools, check if the command is allowed
@@ -100,12 +122,38 @@ export namespace VeniceTools {
           break
         case "websearch":
         case "webfetch":
-          // For web tools, check if web access is enabled
-          if (veniceConfig.web_access === false) {
+          // For web tools, check if web access is enabled (custom option)
+          if (veniceConfig["web_access"] === false) {
             throw new Error(`Web access is disabled for Venice provider`)
           }
           break
       }
+    }
+
+    /**
+     * Map tool name to permission type
+     */
+    private static getPermissionType(toolName: string): string {
+      // Map edit/write/patch tools to 'edit' permission
+      if (["edit", "write", "patch", "multiedit"].includes(toolName)) {
+        return "edit"
+      }
+      return toolName
+    }
+
+    /**
+     * Get pattern for permission evaluation
+     */
+    private static getPattern(toolName: string, args: any): string {
+      // For file operations, use the file path as pattern
+      if (["read", "write", "edit", "patch"].includes(toolName) && args.path) {
+        return args.path
+      }
+      // For bash, use the command as pattern
+      if (toolName === "bash" && args.command) {
+        return args.command
+      }
+      return "*"
     }
 
     /**
