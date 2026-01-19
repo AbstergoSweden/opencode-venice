@@ -2477,7 +2477,7 @@ export namespace Server {
           }),
           async (c) => {
             await Bus.publish(TuiEvent.CommandExecute, {
-              command: "help.open",
+              command: "help.show",
             })
             return c.json(true)
           },
