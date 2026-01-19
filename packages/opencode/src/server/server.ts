@@ -2476,7 +2476,9 @@ export namespace Server {
             },
           }),
           async (c) => {
-            // TODO: open dialog
+            await Bus.publish(TuiEvent.CommandExecute, {
+              command: "help.show",
+            })
             return c.json(true)
           },
         )
