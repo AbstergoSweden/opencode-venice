@@ -289,6 +289,14 @@ export namespace File {
       return { type: "text", content: "" }
     }
 
+    // Resolve real paths to prevent symlink traversal
+    const realPath = await fs.promises.realpath(full)
+    const realRoot = await fs.promises.realpath(Instance.directory)
+
+    if (!Filesystem.contains(realRoot, realPath)) {
+      throw new Error(`Access denied: path escapes project directory`)
+    }
+
     const encode = await shouldEncode(bunFile)
 
     if (encode) {
@@ -337,9 +345,19 @@ export namespace File {
     }
     const resolved = dir ? path.join(Instance.directory, dir) : Instance.directory
 
-    // TODO: Filesystem.contains is lexical only - symlinks inside the project can escape.
-    // TODO: On Windows, cross-drive paths bypass this check. Consider realpath canonicalization.
-    if (!Filesystem.contains(Instance.directory, resolved)) {
+    // Resolve real paths to prevent symlink traversal
+    let realResolved = resolved
+    let realRoot = Instance.directory
+
+    try {
+      realResolved = await fs.promises.realpath(resolved)
+      realRoot = await fs.promises.realpath(Instance.directory)
+    } catch {
+      // If resolving fails (e.g. does not exist), fallback to lexical check
+      // but note that readdir will fail anyway if it doesn't exist.
+    }
+
+    if (!Filesystem.contains(realRoot, realResolved)) {
       throw new Error(`Access denied: path escapes project directory`)
     }
 
