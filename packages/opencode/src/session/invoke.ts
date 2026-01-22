@@ -10,6 +10,9 @@ export async function invokeTool(
 ) {
   const taskTool = await TaskTool.init()
   const agent = await Agent.get(part.agent)
+  if (!agent) {
+    throw new Error(`Agent not found for identifier: ${String(part.agent)}`)
+  }
   return invoke({
     tool: taskTool,
     agent,
