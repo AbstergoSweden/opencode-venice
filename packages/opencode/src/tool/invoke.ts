@@ -12,8 +12,9 @@ import { PermissionNext } from "@/permission/next"
 const log = Log.create({ service: "tool" })
 
 export type InvokeToolInput<T> = {
-  tool: Tool.Untyped<T>
+  tool: Awaited<ReturnType<Tool.Info["init"]>>
   agent: Agent.Info
+  lastUser?: MessageV2.User
   sessionID: string
   parentID: string
   args: T
@@ -42,8 +43,8 @@ export async function invoke<T>(input: InvokeToolInput<T>) {
       reasoning: 0,
       cache: { read: 0, write: 0 },
     },
-    modelID: input.agent.model?.modelID ?? "",
-    providerID: input.agent.model?.providerID ?? "",
+    modelID: input.lastUser?.model.modelID ?? input.agent.model?.modelID ?? "",
+    providerID: input.lastUser?.model.providerID ?? input.agent.model?.providerID ?? "",
     time: {
       created: Date.now(),
     },
@@ -162,8 +163,8 @@ export async function invoke<T>(input: InvokeToolInput<T>) {
     time: {
       created: Date.now(),
     },
-    agent: input.agent.name,
-    model: {
+    agent: input.lastUser?.agent ?? input.agent.name,
+    model: input.lastUser?.model ?? {
       modelID: input.agent.model?.modelID ?? "",
       providerID: input.agent.model?.providerID ?? "",
     },
