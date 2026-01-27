@@ -24,17 +24,8 @@ test("should prevent reading file outside project via symlink", async () => {
   await Instance.provide({
     directory: PROJECT_DIR,
     fn: async () => {
-      // Trying to read the symlink which points outside
-      try {
-        const content = await File.read("symlink.txt");
-        console.log("Content read:", content);
-        // If we reach here, and content is "secret content", vulnerability exists (or not blocked).
-        // The goal is to ensure it throws "Access denied".
-        expect(content.content).not.toBe("secret content");
-      } catch (e: any) {
-        console.log("Caught error:", e.message);
-        expect(e.message).toContain("Access denied");
-      }
+      // Trying to read the symlink which points outside: this must be denied
+      await expect(File.read("symlink.txt")).rejects.toThrow("Access denied");
     },
   });
 });
