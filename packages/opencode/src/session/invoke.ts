@@ -159,7 +159,7 @@ export async function invokeSubtask(input: {
           start: part.state.status === "running" ? part.state.time.start : Date.now(),
           end: Date.now(),
         },
-        metadata: part.metadata,
+        metadata: part.state.metadata,
         input: part.state.input,
       },
     } satisfies MessageV2.ToolPart)
