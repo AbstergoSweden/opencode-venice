@@ -60,13 +60,17 @@ describe("tool.patch", () => {
 *** End Patch`
 
         const permissionAsked = new Promise<void>((resolve, reject) => {
-          Bus.once(PermissionNext.Event.Asked, (event) => {
+          const off = Bus.once(PermissionNext.Event.Asked, (event) => {
             if (event.properties.sessionID === ctx.sessionID) {
+              clearTimeout(timeout)
               resolve()
               return "done"
             }
           })
-          setTimeout(() => reject(new Error("Timeout waiting for permission event")), 1000)
+          const timeout = setTimeout(() => {
+            off?.()
+            reject(new Error("Timeout waiting for permission event"))
+          }, 1000)
         })
 
         // We don't await execute because it will block waiting for permission
