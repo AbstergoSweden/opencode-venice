@@ -319,12 +319,12 @@ export namespace Session {
         await remove(child.id)
       }
       await unshare(sessionID).catch(() => {})
-      for (const msg of await Storage.list(["message", sessionID])) {
-        for (const part of await Storage.list(["part", msg.at(-1)!])) {
-          await Storage.remove(part)
-        }
-        await Storage.remove(msg)
-      }
+      await Promise.all(
+        (await Storage.list(["message", sessionID])).map(async (msg) => {
+          await Promise.all((await Storage.list(["part", msg.at(-1)!])).map((part) => Storage.remove(part)))
+          await Storage.remove(msg)
+        }),
+      )
       await Storage.remove(["session", project.id, sessionID])
       Bus.publish(Event.Deleted, {
         info: session,
