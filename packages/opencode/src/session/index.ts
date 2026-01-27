@@ -302,13 +302,9 @@ export namespace Session {
 
   export const children = fn(Identifier.schema("session"), async (parentID) => {
     const project = Instance.project
-    const result = [] as Session.Info[]
-    for (const item of await Storage.list(["session", project.id])) {
-      const session = await Storage.read<Info>(item)
-      if (session.parentID !== parentID) continue
-      result.push(session)
-    }
-    return result
+    const items = await Storage.list(["session", project.id])
+    const sessions = await Promise.all(items.map((item) => Storage.read<Info>(item)))
+    return sessions.filter((session) => session.parentID === parentID)
   })
 
   export const remove = fn(Identifier.schema("session"), async (sessionID) => {
