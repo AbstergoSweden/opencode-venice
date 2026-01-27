@@ -146,19 +146,21 @@ export namespace File {
           .readdir(Instance.directory, { withFileTypes: true })
           .catch(() => [] as fs.Dirent[])
 
-        for (const entry of top) {
-          if (!entry.isDirectory()) continue
-          if (shouldIgnore(entry.name)) continue
-          dirs.add(entry.name + "/")
+        await Promise.all(
+          top.map(async (entry) => {
+            if (!entry.isDirectory()) return
+            if (shouldIgnore(entry.name)) return
+            dirs.add(entry.name + "/")
 
-          const base = path.join(Instance.directory, entry.name)
-          const children = await fs.promises.readdir(base, { withFileTypes: true }).catch(() => [] as fs.Dirent[])
-          for (const child of children) {
-            if (!child.isDirectory()) continue
-            if (shouldIgnoreNested(child.name)) continue
-            dirs.add(entry.name + "/" + child.name + "/")
-          }
-        }
+            const base = path.join(Instance.directory, entry.name)
+            const children = await fs.promises.readdir(base, { withFileTypes: true }).catch(() => [] as fs.Dirent[])
+            for (const child of children) {
+              if (!child.isDirectory()) continue
+              if (shouldIgnoreNested(child.name)) continue
+              dirs.add(entry.name + "/" + child.name + "/")
+            }
+          }),
+        )
 
         result.dirs = Array.from(dirs).toSorted()
         cache = result
@@ -277,8 +279,6 @@ export namespace File {
     const project = Instance.project
     const full = path.join(Instance.directory, file)
 
-    // TODO: Filesystem.contains is lexical only - symlinks inside the project can escape.
-    // TODO: On Windows, cross-drive paths bypass this check. Consider realpath canonicalization.
     if (!Filesystem.contains(Instance.directory, full)) {
       throw new Error(`Access denied: path escapes project directory`)
     }
@@ -290,10 +290,7 @@ export namespace File {
     }
 
     // Resolve real paths to prevent symlink traversal
-    const realPath = await fs.promises.realpath(full)
-    const realRoot = await fs.promises.realpath(Instance.directory)
-
-    if (!Filesystem.contains(realRoot, realPath)) {
+    if (!(await Filesystem.containsReal(Instance.directory, full))) {
       throw new Error(`Access denied: path escapes project directory`)
     }
 
@@ -346,18 +343,12 @@ export namespace File {
     const resolved = dir ? path.join(Instance.directory, dir) : Instance.directory
 
     // Resolve real paths to prevent symlink traversal
-    let realResolved = resolved
-    let realRoot = Instance.directory
-
-    try {
-      realResolved = await fs.promises.realpath(resolved)
-      realRoot = await fs.promises.realpath(Instance.directory)
-    } catch {
-      // If resolving fails (e.g. does not exist), fallback to lexical check
-      // but note that readdir will fail anyway if it doesn't exist.
+    if (!Filesystem.contains(Instance.directory, resolved)) {
+      throw new Error(`Access denied: path escapes project directory`)
     }
 
-    if (!Filesystem.contains(realRoot, realResolved)) {
+    const exists = await fs.promises.stat(resolved).then(() => true).catch(() => false)
+    if (exists && !(await Filesystem.containsReal(Instance.directory, resolved))) {
       throw new Error(`Access denied: path escapes project directory`)
     }
 

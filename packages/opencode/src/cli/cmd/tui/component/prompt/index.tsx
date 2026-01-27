@@ -193,6 +193,19 @@ export function Prompt(props: PromptProps) {
         },
       },
       {
+        title: "Exit shell mode",
+        value: "shell.exit",
+        keybind: "session_interrupt",
+        disabled: store.mode !== "shell",
+        category: "Shell",
+        onSelect: (dialog) => {
+          if (autocomplete.visible) return
+          if (!input.focused) return
+          setStore("mode", "normal")
+          dialog.clear()
+        },
+      },
+      {
         title: "Interrupt session",
         value: "session.interrupt",
         keybind: "session_interrupt",
@@ -201,11 +214,6 @@ export function Prompt(props: PromptProps) {
         onSelect: (dialog) => {
           if (autocomplete.visible) return
           if (!input.focused) return
-          // TODO: this should be its own command
-          if (store.mode === "shell") {
-            setStore("mode", "normal")
-            return
-          }
           if (!props.sessionID) return
 
           setStore("interrupt", store.interrupt + 1)

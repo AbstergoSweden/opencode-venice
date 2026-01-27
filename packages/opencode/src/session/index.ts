@@ -302,13 +302,9 @@ export namespace Session {
 
   export const children = fn(Identifier.schema("session"), async (parentID) => {
     const project = Instance.project
-    const result = [] as Session.Info[]
-    for (const item of await Storage.list(["session", project.id])) {
-      const session = await Storage.read<Info>(item)
-      if (session.parentID !== parentID) continue
-      result.push(session)
-    }
-    return result
+    const items = await Storage.list(["session", project.id])
+    const sessions = await Promise.all(items.map((item) => Storage.read<Info>(item)))
+    return sessions.filter((session) => session.parentID === parentID)
   })
 
   export const remove = fn(Identifier.schema("session"), async (sessionID) => {
@@ -319,12 +315,12 @@ export namespace Session {
         await remove(child.id)
       }
       await unshare(sessionID).catch(() => {})
-      for (const msg of await Storage.list(["message", sessionID])) {
-        for (const part of await Storage.list(["part", msg.at(-1)!])) {
-          await Storage.remove(part)
-        }
-        await Storage.remove(msg)
-      }
+      await Promise.all(
+        (await Storage.list(["message", sessionID])).map(async (msg) => {
+          await Promise.all((await Storage.list(["part", msg.at(-1)!])).map((part) => Storage.remove(part)))
+          await Storage.remove(msg)
+        }),
+      )
       await Storage.remove(["session", project.id, sessionID])
       Bus.publish(Event.Deleted, {
         info: session,

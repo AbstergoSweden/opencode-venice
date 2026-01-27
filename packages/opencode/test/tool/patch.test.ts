@@ -5,9 +5,10 @@ import { Instance } from "../../src/project/instance"
 import { tmpdir } from "../fixture/fixture"
 import { PermissionNext } from "../../src/permission/next"
 import * as fs from "fs/promises"
+import { Bus } from "../../src/bus"
 
 const ctx = {
-  sessionID: "test",
+  sessionID: "ses_test",
   messageID: "",
   callID: "",
   agent: "build",
@@ -49,7 +50,7 @@ describe("tool.patch", () => {
     })
   })
 
-  test.skip("should ask permission for files outside working directory", async () => {
+  test("should ask permission for files outside working directory", async () => {
     await Instance.provide({
       directory: "/tmp",
       fn: async () => {
@@ -57,9 +58,35 @@ describe("tool.patch", () => {
 *** Add File: /etc/passwd
 +malicious content
 *** End Patch`
-        patchTool.execute({ patchText: maliciousPatch }, ctx)
-        // TODO: this sucks
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+
+        const permissionAsked = new Promise<void>((resolve, reject) => {
+          const off = Bus.once(PermissionNext.Event.Asked, (event) => {
+            if (event.properties.sessionID === ctx.sessionID) {
+              clearTimeout(timeout)
+              resolve()
+              return "done"
+            }
+          })
+          const timeout = setTimeout(() => {
+            off?.()
+            reject(new Error("Timeout waiting for permission event"))
+          }, 1000)
+        })
+
+        // We don't await execute because it will block waiting for permission
+        patchTool.execute({ patchText: maliciousPatch }, {
+          ...ctx,
+          ask: async (req) => {
+            await PermissionNext.ask({
+              sessionID: ctx.sessionID,
+              ruleset: [],
+              ...req,
+            })
+          },
+        }).catch(() => {})
+
+        await permissionAsked
+
         const pending = await PermissionNext.list()
         expect(pending.find((p) => p.sessionID === ctx.sessionID)).toBeDefined()
       },
