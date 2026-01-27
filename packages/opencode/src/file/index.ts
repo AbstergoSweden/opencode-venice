@@ -277,25 +277,27 @@ export namespace File {
     const project = Instance.project
     const full = path.join(Instance.directory, file)
 
-    // TODO: Filesystem.contains is lexical only - symlinks inside the project can escape.
-    // TODO: On Windows, cross-drive paths bypass this check. Consider realpath canonicalization.
+    // Initial lexical check (fast path)
     if (!Filesystem.contains(Instance.directory, full)) {
       throw new Error(`Access denied: path escapes project directory`)
     }
 
-    const bunFile = Bun.file(full)
-
-    if (!(await bunFile.exists())) {
-      return { type: "text", content: "" }
-    }
-
     // Resolve real paths to prevent symlink traversal
-    const realPath = await fs.promises.realpath(full)
-    const realRoot = await fs.promises.realpath(Instance.directory)
+    try {
+      const realPath = await fs.promises.realpath(full)
+      const realRoot = await fs.promises.realpath(Instance.directory)
 
-    if (!Filesystem.contains(realRoot, realPath)) {
-      throw new Error(`Access denied: path escapes project directory`)
+      if (!Filesystem.contains(realRoot, realPath)) {
+        throw new Error(`Access denied: path escapes project directory`)
+      }
+    } catch (error: any) {
+      if (error.code === "ENOENT") {
+        return { type: "text", content: "" }
+      }
+      throw error
     }
+
+    const bunFile = Bun.file(full)
 
     const encode = await shouldEncode(bunFile)
 
