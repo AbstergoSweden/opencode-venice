@@ -361,9 +361,7 @@ export function DialogConnectProvider(props: { provider: string }) {
                         setStore("state", "error")
                         setStore(
                           "error",
-                          e?.message ||
-                            e?.data?.message ||
-                            (typeof e === "object" ? JSON.stringify(e) : String(e)),
+                          e?.message || e?.data?.message || String(e),
                         )
                       }
                     })
