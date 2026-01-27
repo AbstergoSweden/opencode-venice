@@ -345,19 +345,18 @@ export namespace File {
     }
     const resolved = dir ? path.join(Instance.directory, dir) : Instance.directory
 
-    // Resolve real paths to prevent symlink traversal
-    let realResolved = resolved
-    let realRoot = Instance.directory
+    // Canonicalize paths to prevent symlink traversal
+    let canonicalResolved = resolved
+    let canonicalRoot = Instance.directory
 
     try {
-      realResolved = await fs.promises.realpath(resolved)
-      realRoot = await fs.promises.realpath(Instance.directory)
+      canonicalResolved = await fs.promises.realpath(resolved)
+      canonicalRoot = await fs.promises.realpath(Instance.directory)
     } catch {
       // If resolving fails (e.g. does not exist), fallback to lexical check
-      // but note that readdir will fail anyway if it doesn't exist.
     }
 
-    if (!Filesystem.contains(realRoot, realResolved)) {
+    if (!Filesystem.contains(canonicalRoot, canonicalResolved)) {
       throw new Error(`Access denied: path escapes project directory`)
     }
 
