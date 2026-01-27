@@ -16,12 +16,7 @@ const log = Log.create({ service: "session.invoke" })
 export async function invokeSubtask(input: {
   sessionID: string
   parentID: string
-  task: {
-    agent: string
-    prompt: string
-    description: string
-    command?: string
-  }
+  task: Pick<MessageV2.SubtaskPart, "agent" | "prompt" | "description" | "command">
   model: Provider.Model
   abort: AbortSignal
 }) {
