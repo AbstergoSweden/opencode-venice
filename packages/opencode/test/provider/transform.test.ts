@@ -165,6 +165,24 @@ describe("ProviderTransform.maxOutputTokens", () => {
       expect(result).toBe(OUTPUT_TOKEN_MAX)
     })
   })
+
+  describe("@ai-sdk/gateway", () => {
+    test("returns undefined when reasoningEffort is set", () => {
+      const modelLimit = 100000
+      const options = {
+        reasoningEffort: "medium",
+      }
+      const result = ProviderTransform.maxOutputTokens("@ai-sdk/gateway", options, modelLimit, OUTPUT_TOKEN_MAX)
+      expect(result).toBeUndefined()
+    })
+
+    test("returns standard limit when reasoningEffort is not set", () => {
+      const modelLimit = 100000
+      const options = {}
+      const result = ProviderTransform.maxOutputTokens("@ai-sdk/gateway", options, modelLimit, OUTPUT_TOKEN_MAX)
+      expect(result).toBe(OUTPUT_TOKEN_MAX)
+    })
+  })
 })
 
 describe("ProviderTransform.schema - gemini array items", () => {

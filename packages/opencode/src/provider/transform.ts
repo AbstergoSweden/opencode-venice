@@ -282,7 +282,6 @@ export namespace ProviderTransform {
         if (!model.id.includes("gpt") && !model.id.includes("gemini-3") && !model.id.includes("grok-4")) return {}
         return Object.fromEntries(OPENAI_EFFORTS.map((effort) => [effort, { reasoning: { effort } }]))
 
-      // TODO: YOU CANNOT SET max_tokens if this is set!!!
       case "@ai-sdk/gateway":
         return Object.fromEntries(OPENAI_EFFORTS.map((effort) => [effort, { reasoningEffort: effort }]))
 
@@ -553,7 +552,7 @@ export namespace ProviderTransform {
     options: Record<string, any>,
     modelLimit: number,
     globalLimit: number,
-  ): number {
+  ): number | undefined {
     const modelCap = modelLimit || globalLimit
     const standardLimit = Math.min(modelCap, globalLimit)
 
@@ -567,6 +566,12 @@ export namespace ProviderTransform {
           return standardLimit
         }
         return modelCap - budgetTokens
+      }
+    }
+
+    if (npm === "@ai-sdk/gateway") {
+      if (options?.reasoningEffort) {
+        return undefined
       }
     }
 

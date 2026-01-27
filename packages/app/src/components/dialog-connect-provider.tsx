@@ -346,16 +346,26 @@ export function DialogConnectProvider(props: { provider: string }) {
                     })
 
                     onMount(async () => {
-                      const result = await globalSDK.client.provider.oauth.callback({
-                        providerID: props.provider,
-                        method: store.methodIndex,
-                      })
-                      if (result.error) {
-                        // TODO: show error
-                        dialog.close()
-                        return
+                      try {
+                        const result = (await globalSDK.client.provider.oauth.callback({
+                          providerID: props.provider,
+                          method: store.methodIndex,
+                        })) as any
+
+                        if (result?.error) {
+                          throw result.error
+                        }
+
+                        await complete()
+                      } catch (e: any) {
+                        setStore("state", "error")
+                        setStore(
+                          "error",
+                          e?.message ||
+                            e?.data?.message ||
+                            (typeof e === "object" ? JSON.stringify(e) : String(e)),
+                        )
                       }
-                      await complete()
                     })
 
                     return (
