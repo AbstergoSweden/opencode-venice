@@ -1,5 +1,5 @@
 import { realpathSync } from "fs"
-import { exists } from "fs/promises"
+import { exists, realpath } from "fs/promises"
 import { dirname, join, relative } from "path"
 
 export namespace Filesystem {
@@ -24,6 +24,16 @@ export namespace Filesystem {
 
   export function contains(parent: string, child: string) {
     return !relative(parent, child).startsWith("..")
+  }
+
+  export async function containsReal(parent: string, child: string) {
+    try {
+      const realParent = await realpath(parent)
+      const realChild = await realpath(child)
+      return contains(realParent, realChild)
+    } catch {
+      return false
+    }
   }
 
   export async function findUp(target: string, start: string, stop?: string) {
